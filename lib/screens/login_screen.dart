@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../state/app_state_scope.dart';
 import '../theme/app_colors.dart';
+import '../utils/validators.dart';
 import '../widgets/buttons.dart';
 import '../widgets/gradient_divider.dart';
 import '../widgets/labeled_field.dart';
@@ -22,6 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _remember = false;
+  bool _busy = false;
   String? _emailError;
   String? _passwordError;
 
@@ -32,23 +34,48 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _submit() {
-    // The prototype logs straight through without validating credentials —
-    // this mirrors that "fast test" shortcut from the design chat.
+  Future<void> _submit() async {
+    final emailError = validateEmail(_email.text);
+    final passwordError = _password.text.isEmpty ? 'Password is required' : null;
+
     setState(() {
-      _emailError = null;
-      _passwordError = null;
+      _emailError = emailError;
+      _passwordError = passwordError;
     });
+
+    if (emailError != null || passwordError != null) return;
+
+    final appState = AppStateScope.read(context);
+
+    setState(() => _busy = true);
+    final result = await appState.auth.login(
+      email: _email.text,
+      password: _password.text,
+    );
+    if (!mounted) return;
+    setState(() => _busy = false);
+
+    if (!result.ok) {
+      setState(() {
+        // The backend returns a generic message on the email field so it
+        // never reveals whether an account exists.
+        _emailError = result.errorFor('email') ?? result.message;
+      });
+      return;
+    }
+
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const HomeScreen()),
       (route) => false,
     );
   }
 
+  Future<void> _google() async {
+    AppStateScope.read(context).showToast('Google sign-in is not set up yet');
+  }
+
   @override
   Widget build(BuildContext context) {
-    final appState = AppStateScope.read(context);
-
     return Scaffold(
       backgroundColor: AppColors.surface,
       body: SafeArea(
@@ -93,9 +120,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                     ),
-                    PrimaryButton(label: 'Log in →', onPressed: _submit),
+                    PrimaryButton(
+                      label: _busy ? 'Signing in…' : 'Log in →',
+                      onPressed: _busy ? null : _submit,
+                    ),
                     OrDivider('OR CONTINUE WITH'.toUpperCase()),
-                    GmailSignInButton(onPressed: () => appState.showToast('Social login — coming soon')),
+                    GmailSignInButton(onPressed: _google),
                     const SizedBox(height: 20),
                     Center(
                       child: Wrap(

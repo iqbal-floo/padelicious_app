@@ -7,6 +7,7 @@ import '../data/session_repository.dart';
 import '../models/club.dart';
 import '../models/player.dart';
 import '../models/session_summary.dart';
+import 'auth_controller.dart';
 
 enum Team { a, b }
 
@@ -40,11 +41,16 @@ class AppState extends ChangeNotifier {
     SessionRepository? sessionRepository,
     ReclubImportService? reclubImportService,
     GlobalKey<ScaffoldMessengerState>? messengerKey,
-  })  : playerRepository = playerRepository ?? MockPlayerRepository(),
+    AuthController? authController,
+  })  : auth = authController ?? AuthController(),
+        playerRepository = playerRepository ?? MockPlayerRepository(),
         clubRepository = clubRepository ?? MockClubRepository(),
         sessionRepository = sessionRepository ?? MockSessionRepository(),
         reclubImportService = reclubImportService ?? MockReclubImportService(),
         _messengerKey = messengerKey;
+
+  /// Sign-in, registration and sign-out against the backend.
+  final AuthController auth;
 
   final PlayerRepository playerRepository;
   final ClubRepository clubRepository;

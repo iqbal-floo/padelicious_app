@@ -1,9 +1,60 @@
 import 'api_client.dart';
+import 'api_exception.dart';
 
 class AuthApi {
   AuthApi(this._client);
 
   final ApiClient _client;
+
+  /// Creates an account and stores the returned token, so the user is
+  /// signed in immediately. Returns the `user` payload.
+  Future<Map<String, dynamic>> register({
+    required String fullName,
+    required String email,
+    required String password,
+    required String passwordConfirmation,
+    String? phone,
+    String deviceName = 'flutter',
+  }) async {
+    final json = await _client.post('/auth/register', body: {
+      'full_name': fullName,
+      'email': email,
+      'password': password,
+      'password_confirmation': passwordConfirmation,
+      if (phone != null && phone.isNotEmpty) 'phone': phone,
+      'device_name': deviceName,
+      'accepted_terms': true,
+    });
+
+    final token = json['token'] as String?;
+    if (token != null) await _client.saveToken(token);
+
+    return (json['user'] as Map<String, dynamic>?) ?? const {};
+  }
+
+  /// Exchanges a Google access token for an API token.
+  ///
+  /// Returns null when the server has no Google credentials configured
+  /// (503), so the UI can explain rather than show a hard failure.
+  Future<Map<String, dynamic>?> signInWithGoogle({
+    required String accessToken,
+    String deviceName = 'flutter-google',
+  }) async {
+    try {
+      final json = await _client.post('/auth/google', body: {
+        'access_token': accessToken,
+        'device_name': deviceName,
+      });
+
+      final token = json['token'] as String?;
+      if (token != null) await _client.saveToken(token);
+
+      return (json['user'] as Map<String, dynamic>?) ?? const {};
+    } on ApiException catch (e) {
+      if (e.statusCode == 503) return null;
+      rethrow;
+    }
+  }
 
   /// Logs in and stores the bearer token for subsequent requests.
   Future<Map<String, dynamic>> login({

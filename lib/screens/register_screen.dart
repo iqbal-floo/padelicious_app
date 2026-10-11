@@ -23,6 +23,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _password = TextEditingController();
   final _confirm = TextEditingController();
   bool _agree = false;
+  bool _busy = false;
 
   String? _nameError;
   String? _emailError;
@@ -39,7 +40,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  void _submit(BuildContext context) {
+  Future<void> _submit() async {
     final nameError = _name.text.trim().isEmpty ? 'Name is required' : null;
     final emailError = validateEmail(_email.text);
     String? passwordError;
@@ -61,17 +62,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if ([nameError, emailError, passwordError, confirmError, agreeError].any((e) => e != null)) return;
 
-    AppStateScope.read(context).showToast('Welcome to Padelicious! 🎾');
+    final appState = AppStateScope.read(context);
+
+    setState(() => _busy = true);
+    final result = await appState.auth.register(
+      fullName: _name.text,
+      email: _email.text,
+      password: _password.text,
+      passwordConfirmation: _confirm.text,
+    );
+    if (!mounted) return;
+    setState(() => _busy = false);
+
+    if (!result.ok) {
+      // Surface backend field errors inline where they belong.
+      setState(() {
+        _emailError = result.errorFor('email');
+        _passwordError = result.errorFor('password');
+        _nameError = result.errorFor('full_name');
+      });
+      if (_emailError == null && _passwordError == null && _nameError == null) {
+        appState.showToast(result.message ?? 'Could not create your account');
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    appState.showToast('Welcome to Padelicious! 🎾');
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const HomeScreen()),
       (route) => false,
     );
   }
 
+  Future<void> _google() async {
+    final appState = AppStateScope.read(context);
+    // The Google plugin is not wired up yet; the backend endpoint exists
+    // and reports clearly when credentials are missing.
+    appState.showToast('Google sign-in is not set up yet');
+  }
+
   @override
   Widget build(BuildContext context) {
-    final appState = AppStateScope.read(context);
-
     return Scaffold(
       backgroundColor: AppColors.surface,
       body: SafeArea(
@@ -124,9 +156,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         child: Text(_agreeError!, style: const TextStyle(fontSize: 12, color: AppColors.error, fontWeight: FontWeight.w600)),
                       ),
                     const SizedBox(height: 16),
-                    PrimaryButton(label: 'Create account →', onPressed: () => _submit(context)),
-                    OrDivider('OR SIGN UP WITH'),
-                    GmailSignInButton(onPressed: () => appState.showToast('Social login — coming soon')),
+                    PrimaryButton(
+                      label: _busy ? 'Creating account…' : 'Create account →',
+                      onPressed: _busy ? null : _submit,
+                    ),
+                    const OrDivider('OR SIGN UP WITH'),
+                    GmailSignInButton(onPressed: _google),
                     const SizedBox(height: 20),
                     Center(
                       child: Wrap(
