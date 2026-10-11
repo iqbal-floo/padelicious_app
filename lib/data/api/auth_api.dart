@@ -14,6 +14,7 @@ class AuthApi {
     required String password,
     required String passwordConfirmation,
     String? phone,
+    String? gender,
     String deviceName = 'flutter',
   }) async {
     final json = await _client.post('/auth/register', body: {
@@ -22,6 +23,7 @@ class AuthApi {
       'password': password,
       'password_confirmation': passwordConfirmation,
       if (phone != null && phone.isNotEmpty) 'phone': phone,
+      if (gender != null) 'gender': gender,
       'device_name': deviceName,
       'accepted_terms': true,
     });
@@ -75,6 +77,23 @@ class AuthApi {
   }
 
   Future<Map<String, dynamic>> me() async => _client.get('/auth/me');
+
+  /// Updates the signed-in user and their player profile. This is how an
+  /// existing account sets its gender, which mixed formats require.
+  Future<Map<String, dynamic>> updateProfile({
+    String? fullName,
+    String? displayName,
+    String? gender,
+    double? skillLevel,
+    int? avatarColorIndex,
+  }) async =>
+      _client.patch('/profile', body: {
+        if (fullName != null) 'full_name': fullName,
+        if (displayName != null) 'display_name': displayName,
+        if (gender != null) 'gender': gender,
+        if (skillLevel != null) 'skill_level': skillLevel,
+        if (avatarColorIndex != null) 'avatar_color_index': avatarColorIndex,
+      });
 
   Future<void> logout() async {
     try {

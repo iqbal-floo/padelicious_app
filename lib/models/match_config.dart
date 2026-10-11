@@ -30,11 +30,6 @@ const List<MatchTypeGroup> matchTypeGroups = [
     MatchTypeOption('koth', 'KOTH'),
     MatchTypeOption('team_koth', 'Team KOTH'),
   ]),
-  MatchTypeGroup('Club', [
-    MatchTypeOption('club_team_americano', 'Club Team Americano'),
-    MatchTypeOption('club_americano', 'Club Americano'),
-    MatchTypeOption('club_mexicano', 'Club Mexicano'),
-  ]),
 ];
 
 const Map<String, String> matchTypeLabels = {
@@ -46,9 +41,6 @@ const Map<String, String> matchTypeLabels = {
   'mixicano': 'Mixicano',
   'koth': 'King of the Court',
   'team_koth': 'Team King of the Court',
-  'club_team_americano': 'Club Team Americano',
-  'club_americano': 'Club Americano',
-  'club_mexicano': 'Club Mexicano',
 };
 
 const List<MatchTypeOption> normalTargetOptions = [

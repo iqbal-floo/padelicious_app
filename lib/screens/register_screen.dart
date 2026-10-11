@@ -4,6 +4,7 @@ import '../state/app_state_scope.dart';
 import '../theme/app_colors.dart';
 import '../utils/validators.dart';
 import '../widgets/buttons.dart';
+import '../widgets/gender_selector.dart';
 import '../widgets/gradient_divider.dart';
 import '../widgets/labeled_field.dart';
 import '../widgets/padel_header.dart';
@@ -24,6 +25,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirm = TextEditingController();
   bool _agree = false;
   bool _busy = false;
+  String? _gender;
 
   String? _nameError;
   String? _emailError;
@@ -70,6 +72,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       email: _email.text,
       password: _password.text,
       passwordConfirmation: _confirm.text,
+      gender: _gender,
     );
     if (!mounted) return;
     setState(() => _busy = false);
@@ -124,6 +127,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     LabeledField(label: 'Email', controller: _email, hint: 'you@email.com', keyboardType: TextInputType.emailAddress, errorText: _emailError),
                     LabeledField(label: 'Password', controller: _password, hint: 'At least 6 characters', obscureText: true, errorText: _passwordError),
                     LabeledField(label: 'Confirm password', controller: _confirm, hint: 'Re-enter password', obscureText: true, errorText: _confirmError),
+                    const SizedBox(height: 14),
+                    GenderSelector(
+                      value: _gender,
+                      onChanged: (v) => setState(() => _gender = v),
+                      helperText: 'Optional — needed for mixed formats like Mix Americano.',
+                    ),
                     Padding(
                       padding: const EdgeInsets.only(top: 16, bottom: 4),
                       child: InkWell(

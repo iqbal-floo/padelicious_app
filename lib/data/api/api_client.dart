@@ -74,6 +74,12 @@ class ApiClient {
   }) async =>
       _send(() => _dio.post(path, data: body));
 
+  Future<Map<String, dynamic>> patch(
+    String path, {
+    Object? body,
+  }) async =>
+      _send(() => _dio.patch(path, data: body));
+
   Future<Map<String, dynamic>> delete(
     String path, {
     Object? body,

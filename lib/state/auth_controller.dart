@@ -57,6 +57,7 @@ class AuthController {
     required String email,
     required String password,
     required String passwordConfirmation,
+    String? gender,
   }) =>
       _attempt(() async {
         _user = await _api.register(
@@ -64,6 +65,30 @@ class AuthController {
           email: email.trim(),
           password: password,
           passwordConfirmation: passwordConfirmation,
+          gender: gender,
+        );
+      });
+
+  /// The player's gender, as stored on their profile.
+  String? get gender => (_user?['player'] as Map?)?['gender'] as String?;
+
+  /// Mixed formats (Mix Americano, Mixicano) need this set.
+  bool get hasGender {
+    final g = gender;
+    return g != null && g != 'undisclosed';
+  }
+
+  /// Updates the profile; used to set gender after sign-up.
+  Future<AuthResult> updateProfile({
+    String? fullName,
+    String? displayName,
+    String? gender,
+  }) =>
+      _attempt(() async {
+        _user = await _api.updateProfile(
+          fullName: fullName,
+          displayName: displayName,
+          gender: gender,
         );
       });
 

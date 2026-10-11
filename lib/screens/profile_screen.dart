@@ -5,6 +5,7 @@ import '../theme/app_colors.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/section_label.dart';
 import 'clubs_screen.dart';
+import 'edit_profile_screen.dart';
 import 'login_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -65,7 +66,7 @@ class ProfileScreen extends StatelessWidget {
           const SizedBox(height: 24),
           const SectionLabel('Account'),
           SectionCard(children: [
-            SectionCardRow(child: _MenuRow(icon: '✏️', label: 'Edit profile', onTap: () => appState.showToast('Edit profile — coming soon'))),
+            SectionCardRow(child: _MenuRow(icon: '✏️', label: 'Edit profile', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EditProfileScreen())))),
             SectionCardRow(
               child: _MenuRow(icon: '🏸', label: 'My clubs', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ClubsScreen()))),
             ),
