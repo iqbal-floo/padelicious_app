@@ -46,24 +46,6 @@ class MockData {
     'Competition',
   ];
 
-  static const List<Player> defaultSetupPlayers = [
-    Player(name: 'Iqbal', initials: 'IQ', bg: AppColors.chipPairsBg0, color: AppColors.chipPairsFg0, badge: 'Admin'),
-    Player(name: 'Rafi', initials: 'RF', bg: AppColors.chipPairsBg1, color: AppColors.chipPairsFg1),
-    Player(name: 'Budi', initials: 'BD', bg: AppColors.chipPairsBg2, color: AppColors.chipPairsFg2),
-    Player(name: 'Hendra', initials: 'HN', bg: AppColors.chipPairsBg3, color: AppColors.chipPairsFg3),
-  ];
-
-  static const List<Player> reclubImportPlayers = [
-    Player(name: 'Iqbal', initials: 'IQ', bg: AppColors.chipPairsBg0, color: AppColors.chipPairsFg0, badge: 'Admin'),
-    Player(name: 'Rafi', initials: 'RF', bg: AppColors.chipPairsBg1, color: AppColors.chipPairsFg1, fromReclub: true),
-    Player(name: 'Budi', initials: 'BD', bg: AppColors.chipPairsBg2, color: AppColors.chipPairsFg2, fromReclub: true),
-    Player(name: 'Hendra', initials: 'HN', bg: AppColors.chipPairsBg3, color: AppColors.chipPairsFg3, fromReclub: true),
-    Player(name: 'Andi', initials: 'AN', bg: AppColors.chipPairsBg4, color: AppColors.chipPairsFg4, fromReclub: true),
-    Player(name: 'Dito', initials: 'DT', bg: AppColors.chipPairsBg5, color: AppColors.chipPairsFg5, fromReclub: true),
-    Player(name: 'Yoga', initials: 'YG', bg: AppColors.chipPairsBg6, color: AppColors.chipPairsFg6, fromReclub: true),
-    Player(name: 'Febri', initials: 'FB', bg: AppColors.chipPairsBg7, color: AppColors.chipPairsFg7, fromReclub: true),
-  ];
-
   static const List<String> queueNames = ['Rizal', 'Fajar', 'Tommy', 'Irwan', 'Bagas', 'Kurnia', 'Sandi', 'Wira'];
 
   static List<Club> seedClubs() => [

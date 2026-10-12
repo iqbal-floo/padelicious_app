@@ -35,6 +35,7 @@ void main() {
 
     final result = await auth.register(
       fullName: 'Dart Tester',
+      username: 'dt1.$unique',
       email: email,
       password: 'secret123',
       passwordConfirmation: 'secret123',
@@ -57,6 +58,7 @@ void main() {
 
     final first = await fresh().register(
       fullName: 'First One',
+      username: 'dt2.$unique',
       email: email,
       password: 'secret123',
       passwordConfirmation: 'secret123',
@@ -65,6 +67,7 @@ void main() {
 
     final second = await fresh().register(
       fullName: 'Second One',
+      username: 'dt3.$unique',
       email: email,
       password: 'secret123',
       passwordConfirmation: 'secret123',
@@ -78,6 +81,7 @@ void main() {
     final unique = DateTime.now().microsecondsSinceEpoch;
     final result = await fresh().register(
       fullName: 'Shorty Pass',
+      username: 'dt4.$unique',
       email: 'short.$unique@example.com',
       password: 'abc12',
       passwordConfirmation: 'abc12',
@@ -93,6 +97,7 @@ void main() {
 
     await fresh().register(
       fullName: 'Login Tester',
+      username: 'dt5.$unique',
       email: email,
       password: 'secret123',
       passwordConfirmation: 'secret123',

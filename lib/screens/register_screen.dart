@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../state/app_state_scope.dart';
 import '../theme/app_colors.dart';
+import '../data/api/player_api.dart';
 import '../utils/validators.dart';
 import '../widgets/buttons.dart';
 import '../widgets/gender_selector.dart';
@@ -20,6 +21,8 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _name = TextEditingController();
+  final _username = TextEditingController();
+  bool _usernameEdited = false;
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _confirm = TextEditingController();
@@ -28,6 +31,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _gender;
 
   String? _nameError;
+  String? _usernameError;
   String? _emailError;
   String? _passwordError;
   String? _confirmError;
@@ -36,6 +40,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void dispose() {
     _name.dispose();
+    _username.dispose();
     _email.dispose();
     _password.dispose();
     _confirm.dispose();
@@ -44,6 +49,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _submit() async {
     final nameError = _name.text.trim().isEmpty ? 'Name is required' : null;
+    final usernameError = validateUsername(_username.text);
     final emailError = validateEmail(_email.text);
     String? passwordError;
     if (_password.text.isEmpty) {
@@ -56,19 +62,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() {
       _nameError = nameError;
+      _usernameError = usernameError;
       _emailError = emailError;
       _passwordError = passwordError;
       _confirmError = confirmError;
       _agreeError = agreeError;
     });
 
-    if ([nameError, emailError, passwordError, confirmError, agreeError].any((e) => e != null)) return;
+    if ([nameError, usernameError, emailError, passwordError, confirmError, agreeError].any((e) => e != null)) return;
 
     final appState = AppStateScope.read(context);
 
     setState(() => _busy = true);
     final result = await appState.auth.register(
       fullName: _name.text,
+      username: _username.text,
       email: _email.text,
       password: _password.text,
       passwordConfirmation: _confirm.text,
@@ -81,10 +89,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // Surface backend field errors inline where they belong.
       setState(() {
         _emailError = result.errorFor('email');
+        _usernameError = result.errorFor('username');
         _passwordError = result.errorFor('password');
         _nameError = result.errorFor('full_name');
       });
-      if (_emailError == null && _passwordError == null && _nameError == null) {
+      if (_emailError == null && _usernameError == null && _passwordError == null && _nameError == null) {
         appState.showToast(result.message ?? 'Could not create your account');
       }
       return;
@@ -123,7 +132,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     const Text("Let's get you playing 🎾", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.navy)),
                     const SizedBox(height: 4),
                     const Text('Create your player profile in a minute', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
-                    LabeledField(label: 'Full name', controller: _name, hint: 'Iqbal Ramadhan', errorText: _nameError),
+                    LabeledField(
+                      label: 'Full name',
+                      controller: _name,
+                      hint: 'Iqbal Ramadhan',
+                      errorText: _nameError,
+                      // Suggest a handle until the player types their own.
+                      onChanged: (v) {
+                        if (!_usernameEdited) setState(() => _username.text = suggestUsername(v));
+                      },
+                    ),
+                    LabeledField(
+                      label: 'Username',
+                      controller: _username,
+                      hint: 'iqbal.ramadhan',
+                      errorText: _usernameError,
+                      onChanged: (_) => _usernameEdited = true,
+                    ),
                     LabeledField(label: 'Email', controller: _email, hint: 'you@email.com', keyboardType: TextInputType.emailAddress, errorText: _emailError),
                     LabeledField(label: 'Password', controller: _password, hint: 'At least 6 characters', obscureText: true, errorText: _passwordError),
                     LabeledField(label: 'Confirm password', controller: _confirm, hint: 'Re-enter password', obscureText: true, errorText: _confirmError),

@@ -2,26 +2,50 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
+/// Circular back button for the navy header.
+///
+/// The visible circle is 40px but the tap target is a full 48px, so taps
+/// near the edge still land. A real icon is used rather than a "←" glyph,
+/// whose position depends on the font's baseline and sat off-centre.
 class BackCircleButton extends StatelessWidget {
   const BackCircleButton({super.key, this.onTap});
 
   final VoidCallback? onTap;
 
+  static const double _tapSize = 48;
+  static const double _circleSize = 40;
+
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap ?? () => Navigator.of(context).pop(),
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        width: 36,
-        height: 36,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.12),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white.withOpacity(0.2)),
+    return Semantics(
+      button: true,
+      label: 'Back',
+      child: SizedBox.square(
+        dimension: _tapSize,
+        child: Material(
+          type: MaterialType.transparency,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            splashColor: Colors.white.withValues(alpha: 0.18),
+            highlightColor: Colors.white.withValues(alpha: 0.10),
+            // maybePop: never pops the root route off an empty stack.
+            onTap: onTap ?? () => Navigator.of(context).maybePop(),
+            child: Center(
+              child: Container(
+                width: _circleSize,
+                height: _circleSize,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+                ),
+                child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 22),
+              ),
+            ),
+          ),
         ),
-        child: const Text('←', style: TextStyle(color: Colors.white, fontSize: 18)),
       ),
     );
   }
@@ -90,12 +114,12 @@ class PadelHeader extends StatelessWidget {
 
     return Container(
       color: AppColors.navy,
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+      padding: EdgeInsets.fromLTRB(showBack ? 12 : 20, showBack ? 10 : 14, 20, showBack ? 14 : 18),
       child: Row(
         children: [
           if (showBack) ...[
             BackCircleButton(onTap: onBack),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
           ],
           Expanded(child: centerTitle ? Center(child: titleColumn) : titleColumn),
           if (trailing != null) ...[

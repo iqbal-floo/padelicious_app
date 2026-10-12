@@ -21,4 +21,23 @@ class ApiConfig {
   /// Server-Sent Events stream of one match's score.
   static String liveStreamUrl(String matchId) =>
       '$apiRoot/live/matches/$matchId/stream';
+
+  /// Printable order of play for a session. `pdf: true` downloads the
+  /// file; [startTime] ("08:15") adds a time column, one [slotMinutes]
+  /// per round.
+  static String orderOfPlayUrl(
+    String sessionId, {
+    bool pdf = false,
+    String? startTime,
+    int slotMinutes = 15,
+  }) {
+    final params = <String, String>{
+      if (pdf) 'format': 'pdf',
+      if (startTime != null) 'start': startTime,
+      if (startTime != null) 'slot': '$slotMinutes',
+    };
+    final query =
+        params.isEmpty ? '' : '?${Uri(queryParameters: params).query}';
+    return '$baseUrl/sessions/$sessionId/order-of-play$query';
+  }
 }

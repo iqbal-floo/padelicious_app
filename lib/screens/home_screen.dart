@@ -23,11 +23,11 @@ class HomeScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            const PadelHeader(
+            PadelHeader(
               title: '🎾 Padelicious',
-              subtitle: 'Hi Iqbal 👋',
+              subtitle: 'Hi ${appState.currentPlayerName} 👋',
               showBack: false,
-              trailing: PillBadge('Member'),
+              trailing: const PillBadge('Member'),
             ),
             const GradientDivider(),
             Expanded(
@@ -57,18 +57,24 @@ class HomeScreen extends StatelessWidget {
                               height: 64,
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
-                                color: AppColors.avatarBg,
+                                color: appState.currentPlayerAvatarBg,
                                 shape: BoxShape.circle,
                                 border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
                               ),
-                              child: const Text('IQ', style: TextStyle(color: AppColors.avatarFg, fontSize: 20, fontWeight: FontWeight.w800)),
+                              child: Text(
+                                appState.currentPlayerInitials,
+                                style: TextStyle(color: appState.currentPlayerAvatarFg, fontSize: 20, fontWeight: FontWeight.w800),
+                              ),
                             ),
                             const SizedBox(width: 16),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Iqbal', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: Colors.white)),
+                                  Text(
+                                    appState.currentPlayerName,
+                                    style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: Colors.white),
+                                  ),
                                   const SizedBox(height: 8),
                                   const PillBadge('Member'),
                                 ],

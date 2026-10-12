@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../data/api/api_client.dart';
+import '../data/api/api_exception.dart';
+import '../data/api/match_api.dart';
+import '../data/api/player_api.dart';
 import '../data/club_repository.dart';
 import '../data/player_repository.dart';
-import '../data/reclub_import_service.dart';
 import '../data/session_repository.dart';
 import '../models/club.dart';
 import '../models/player.dart';
 import '../models/session_summary.dart';
+import '../theme/app_colors.dart';
 import 'auth_controller.dart';
 
 enum Team { a, b }
@@ -39,26 +43,51 @@ class AppState extends ChangeNotifier {
     PlayerRepository? playerRepository,
     ClubRepository? clubRepository,
     SessionRepository? sessionRepository,
-    ReclubImportService? reclubImportService,
     GlobalKey<ScaffoldMessengerState>? messengerKey,
     AuthController? authController,
   })  : auth = authController ?? AuthController(),
         playerRepository = playerRepository ?? MockPlayerRepository(),
         clubRepository = clubRepository ?? MockClubRepository(),
         sessionRepository = sessionRepository ?? MockSessionRepository(),
-        reclubImportService = reclubImportService ?? MockReclubImportService(),
         _messengerKey = messengerKey;
 
   /// Sign-in, registration and sign-out against the backend.
   final AuthController auth;
 
+  /// Backend access for the session screens. One client, so the stored
+  /// token is shared with [auth].
+  late final ApiClient apiClient = ApiClient();
+  late final MatchApi matchApi = MatchApi(apiClient);
+  late final PlayerApi playerApi = PlayerApi(apiClient);
+
   final PlayerRepository playerRepository;
   final ClubRepository clubRepository;
   final SessionRepository sessionRepository;
-  final ReclubImportService reclubImportService;
   final GlobalKey<ScaffoldMessengerState>? _messengerKey;
 
-  static const String currentPlayerName = 'Iqbal';
+  /// The signed-in player, read straight from [auth] so every screen shows
+  /// the real account rather than a baked-in name. These fall back to
+  /// neutral placeholders only while the profile request is in flight.
+  String get currentPlayerName => auth.displayName ?? 'Player';
+
+  String get currentPlayerInitials => auth.initials ?? '··';
+
+  Color get currentPlayerAvatarBg =>
+      AppColors.chipPairsBg[auth.avatarColorIndex];
+
+  Color get currentPlayerAvatarFg =>
+      AppColors.chipPairsFg[auth.avatarColorIndex];
+
+  /// "Member since 2026", or a neutral label when the date is unknown.
+  String get memberSinceLabel {
+    final since = auth.memberSince;
+    return since == null ? 'Member' : 'Member since ${since.year}';
+  }
+
+  /// The backend session the live screens are showing, once one has been
+  /// created through the API. Null while the setup flow is still
+  /// mock-backed, which hides API-only actions such as the export button.
+  String? activeSessionId;
 
   bool _loaded = false;
   bool get isLoaded => _loaded;
@@ -158,7 +187,10 @@ class AppState extends ChangeNotifier {
   String matchCode = '';
   ImportStatus importStatus = ImportStatus.idle;
   String? importError;
-  List<Player> setupPlayers = const [];
+  /// The last Reclub import on the Setup screen, with each person's
+  /// Reclub list (confirmed / waitlisted).
+  List<ReclubPlayer> reclubImported = const [];
+  String? reclubTitle;
 
   void updateSetup({
     int? courts,
@@ -197,16 +229,44 @@ class AppState extends ChangeNotifier {
     importStatus = ImportStatus.loading;
     importError = null;
     notifyListeners();
-    final imported = await reclubImportService.importByMatchCode(matchCode);
-    setupPlayers = imported;
-    importStatus = ImportStatus.success;
-    notifyListeners();
-    showToast('${imported.length} players imported from Reclub 🎾');
+    try {
+      final result = await playerApi.importReclub(matchCode);
+      reclubImported = result.players;
+      reclubTitle = result.title;
+      importStatus = ImportStatus.success;
+      notifyListeners();
+      final waitlisted = result.players.where((p) => p.status == 'waitlisted').length;
+      showToast('${result.players.length} players imported from Reclub'
+          '${waitlisted > 0 ? ' ($waitlisted waitlisted)' : ''} 🎾');
+    } on ApiException catch (e) {
+      importStatus = ImportStatus.idle;
+      importError = e.firstError ?? e.message;
+      notifyListeners();
+    }
   }
 
-  // Setup screen starts with the default 4-player roster.
-  void resetSetupPlayersIfEmpty(List<Player> defaults) {
-    if (setupPlayers.isEmpty) setupPlayers = defaults;
+  /// Players picked on the Setup screen before the session exists. The
+  /// creator is not in here: the backend always adds them as host.
+  List<PlayerRow> setupPicked = [];
+
+  void addSetupPlayer(PlayerRow player) {
+    if (setupPicked.any((p) => p.id == player.id)) return;
+    setupPicked = [...setupPicked, player];
+    notifyListeners();
+  }
+
+  void removeSetupPlayer(String id) {
+    setupPicked = setupPicked.where((p) => p.id != id).toList();
+    reclubImported = reclubImported.where((r) => r.player.id != id).toList();
+    notifyListeners();
+  }
+
+  /// Clears the roster part of the Setup form once a session is created.
+  void resetSetupRoster() {
+    setupPicked = [];
+    reclubImported = const [];
+    reclubTitle = null;
+    importStatus = ImportStatus.idle;
   }
 
   // ---- Live scoreboard -----------------------------------------------------

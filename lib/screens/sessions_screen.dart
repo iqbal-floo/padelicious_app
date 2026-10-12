@@ -6,7 +6,8 @@ import '../theme/app_colors.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/buttons.dart';
 import '../widgets/tab_toggle.dart';
-import 'kotc_screen.dart';
+import '../data/api/api_exception.dart';
+import 'session_detail_screen.dart';
 import 'setup_screen.dart';
 
 class SessionsScreen extends StatefulWidget {
@@ -18,11 +19,48 @@ class SessionsScreen extends StatefulWidget {
 
 class _SessionsScreenState extends State<SessionsScreen> {
   int _tab = 0;
+  List<Map<String, dynamic>> _sessions = const [];
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  /// Sessions come from the backend now, so each row carries its id.
+  Future<void> _load() async {
+    final appState = AppStateScope.read(context);
+    try {
+      final rows = await appState.matchApi.fetchSessions(_tab == 0 ? 'active' : 'past');
+      if (!mounted) return;
+      setState(() {
+        _sessions = rows;
+        _error = null;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.message);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final appState = AppStateScope.of(context);
-    final sessions = _tab == 0 ? appState.activeSessions : appState.pastSessions;
+    final sessions = [
+      for (final row in _sessions)
+        (
+          id: '${row['id']}',
+          summary: SessionSummary(
+            icon: '${row['icon'] ?? '🎾'}',
+            name: '${row['name'] ?? ''}',
+            detail: [
+              if ((row['match_type'] as Map?)?['label'] != null) '${(row['match_type'] as Map)['label']}',
+              '${(row['participant_count'] as num?)?.toInt() ?? 0} players',
+              if ((row['club'] as Map?)?['name'] != null) '${(row['club'] as Map)['name']}',
+            ].join(' · '),
+          ),
+        ),
+    ];
     final tabLabel = _tab == 0 ? 'active' : 'past';
 
     return AppScaffold(
@@ -32,7 +70,14 @@ class _SessionsScreenState extends State<SessionsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 20),
-          TabToggle(labels: const ['Active', 'Past'], selectedIndex: _tab, onSelect: (i) => setState(() => _tab = i)),
+          TabToggle(
+            labels: const ['Active', 'Past'],
+            selectedIndex: _tab,
+            onSelect: (i) {
+              setState(() => _tab = i);
+              _load();
+            },
+          ),
           const SizedBox(height: 16),
           PrimaryButton(
             label: '+ Create new session',
@@ -40,7 +85,9 @@ class _SessionsScreenState extends State<SessionsScreen> {
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SetupScreen())),
           ),
           const SizedBox(height: 16),
-          if (sessions.isEmpty)
+          if (_error != null)
+            Text(_error!, style: const TextStyle(color: AppColors.error, fontSize: 13))
+          else if (sessions.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Center(
@@ -51,7 +98,13 @@ class _SessionsScreenState extends State<SessionsScreen> {
             Column(
               children: [
                 for (final session in sessions) ...[
-                  _SessionRow(session: session),
+                  _SessionRow(
+                    session: session.summary,
+                    onTap: () async {
+                      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => SessionDetailScreen(sessionId: session.id)));
+                      _load();
+                    },
+                  ),
                   const SizedBox(height: 8),
                 ],
               ],
@@ -63,14 +116,15 @@ class _SessionsScreenState extends State<SessionsScreen> {
 }
 
 class _SessionRow extends StatelessWidget {
-  const _SessionRow({required this.session});
+  const _SessionRow({required this.session, required this.onTap});
 
   final SessionSummary session;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return SimpleCard(
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const KotcScreen())),
+      onTap: onTap,
       child: Row(
         children: [
           Text(session.icon, style: const TextStyle(fontSize: 20)),

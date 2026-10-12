@@ -36,17 +36,26 @@ class ProfileScreen extends StatelessWidget {
                   width: 56,
                   height: 56,
                   alignment: Alignment.center,
-                  decoration: const BoxDecoration(color: AppColors.avatarBg, shape: BoxShape.circle),
-                  child: const Text('IQ', style: TextStyle(color: AppColors.avatarFg, fontSize: 17, fontWeight: FontWeight.w800)),
+                  decoration: BoxDecoration(color: appState.currentPlayerAvatarBg, shape: BoxShape.circle),
+                  child: Text(
+                    appState.currentPlayerInitials,
+                    style: TextStyle(color: appState.currentPlayerAvatarFg, fontSize: 17, fontWeight: FontWeight.w800),
+                  ),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Iqbal', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.navy)),
-                      SizedBox(height: 1),
-                      Text('Member since 2024', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                      Text(
+                        appState.auth.fullName ?? appState.currentPlayerName,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.navy),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        appState.memberSinceLabel,
+                        style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                      ),
                     ],
                   ),
                 ),

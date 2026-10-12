@@ -6,6 +6,7 @@ import '../state/app_state_scope.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/buttons.dart';
+import '../widgets/order_of_play_button.dart';
 import '../widgets/padel_header.dart';
 import 'leaderboard_screen.dart';
 import 'score_screen.dart';
@@ -53,6 +54,10 @@ class KotcScreen extends StatelessWidget {
             onWatch: () => appState.showToast('No watch on Court 2'),
             onShare: () => appState.showToast('Court 2 link copied!'),
           ),
+          if (appState.activeSessionId != null) ...[
+            const SizedBox(height: 12),
+            OrderOfPlayButton(sessionId: appState.activeSessionId!),
+          ],
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

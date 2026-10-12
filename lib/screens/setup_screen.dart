@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 
-import '../data/mock_data.dart';
 import '../models/match_config.dart';
 import '../state/app_state.dart';
 import '../state/app_state_scope.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_scaffold.dart';
-import '../widgets/avatar_badge.dart';
+import '../widgets/roster_grid.dart';
 import '../widgets/buttons.dart';
 import '../widgets/dropdown_field.dart';
 import '../widgets/form_row.dart';
 import '../widgets/padel_header.dart';
 import '../widgets/section_label.dart';
-import 'kotc_screen.dart';
+import '../data/api/api_exception.dart';
+import '../data/api/player_api.dart';
+import 'add_player_screen.dart';
+import 'session_detail_screen.dart';
 
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
@@ -29,7 +31,6 @@ class _SetupScreenState extends State<SetupScreen> {
   void initState() {
     super.initState();
     final appState = AppStateScope.read(context);
-    appState.resetSetupPlayersIfEmpty(MockData.defaultSetupPlayers);
     _matchName = TextEditingController(text: appState.matchName);
     _matchCode = TextEditingController(text: appState.matchCode);
   }
@@ -39,6 +40,96 @@ class _SetupScreenState extends State<SetupScreen> {
     _matchName.dispose();
     _matchCode.dispose();
     super.dispose();
+  }
+
+  bool _starting = false;
+
+  /// The roster as it will be created: the creator first (host), then
+  /// players picked by hand, then Reclub imports.
+  List<RosterPerson> _roster(AppState appState) {
+    final auth = appState.auth;
+    return [
+      RosterPerson(
+        id: 'me',
+        name: auth.displayName ?? 'You',
+        initials: auth.initials ?? '··',
+        colorIndex: auth.avatarColorIndex,
+        username: auth.username,
+        tags: const ['host'],
+        isCreator: true,
+      ),
+      for (final p in appState.setupPicked)
+        RosterPerson(
+          id: p.id,
+          name: p.displayName,
+          initials: p.initials,
+          colorIndex: p.avatarColorIndex % 8,
+          username: p.username,
+        ),
+      for (final r in appState.reclubImported)
+        // Whoever created the session is already on it as host.
+        if (r.player.username != auth.username)
+          RosterPerson(
+            id: r.player.id,
+            name: r.player.displayName,
+            initials: r.player.initials,
+            colorIndex: r.player.avatarColorIndex % 8,
+            username: r.player.username,
+            status: r.status,
+            source: 'reclub',
+          ),
+    ];
+  }
+
+  Future<void> _removeFromSetup(AppState appState, RosterPerson person) async {
+    if (person.isCreator) {
+      appState.showToast('You are the host of this session');
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Remove ${person.name}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Remove')),
+        ],
+      ),
+    );
+    if (ok == true) appState.removeSetupPlayer(person.id);
+  }
+
+  /// Creates the session on the backend from the form — with the players
+  /// picked here and any Reclub import — then opens it.
+  Future<void> _start(AppState appState) async {
+    setState(() => _starting = true);
+    try {
+      final tennis = appState.scoringType == 'tennis';
+      final id = await appState.matchApi.createSession(
+        name: appState.matchName.trim().isEmpty ? 'Padel session' : appState.matchName.trim(),
+        matchTypeCode: appState.matchType,
+        scheduledDate: appState.matchDate,
+        courtCount: appState.courts,
+        scoringType: appState.scoringType,
+        pointsTarget: !tennis && appState.normalTarget != 'undefined' ? int.tryParse(appState.normalTarget) : null,
+        tennisMode: tennis && appState.tennisMode != 'undefined' ? appState.tennisMode : null,
+        goldenPoint: appState.golden,
+        leaderboardSort: appState.sortBy,
+        playerIds: [for (final p in appState.setupPicked) p.id],
+        reclubPlayers: {
+          for (final r in appState.reclubImported)
+            if (r.player.username != appState.auth.username) r.player.id: r.status,
+        },
+      );
+      appState.resetSetupRoster();
+      appState.activeSessionId = id;
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => SessionDetailScreen(sessionId: id)));
+    } on ApiException catch (e) {
+      appState.showToast(e.firstError ?? e.message);
+    } finally {
+      if (mounted) setState(() => _starting = false);
+    }
   }
 
   @override
@@ -268,7 +359,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
-                      '✓ Imported ${appState.setupPlayers.length} players (with photos) from Reclub',
+                      '✓ ${appState.reclubImported.length} players from ${appState.reclubTitle ?? 'Reclub'}',
                       style: const TextStyle(fontSize: 12, color: AppColors.greenText, fontWeight: FontWeight.w700),
                     ),
                   ),
@@ -276,53 +367,53 @@ class _SetupScreenState extends State<SetupScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          SectionLabel(
-            'Players',
-            trailing: '${appState.setupPlayers.length} added${appState.importStatus == ImportStatus.success ? ' via Reclub' : ''}',
-          ),
-          Column(
-            children: [
-              for (final p in appState.setupPlayers)
+          Builder(builder: (context) {
+            final roster = _roster(appState);
+            final reclub = appState.reclubImported.length;
+            final waitlisted = roster.where((p) => p.status == 'waitlisted').length;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SectionLabel(
+                  'Players',
+                  trailing: '${roster.length - waitlisted} confirmed'
+                      '${waitlisted > 0 ? ' · $waitlisted waitlisted' : ''}'
+                      '${reclub > 0 ? ' · $reclub via Reclub' : ''}',
+                ),
                 Container(
-                  margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     border: Border.all(color: AppColors.border),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [BoxShadow(color: AppColors.navy.withOpacity(0.07), blurRadius: 4, offset: const Offset(0, 1))],
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Row(
-                    children: [
-                      InitialsAvatar(initials: p.initials, background: p.bg, foreground: p.color, size: 36, fontSize: 12),
-                      const SizedBox(width: 10),
-                      Expanded(child: Text(p.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.navy))),
-                      if (p.badge != null) ...[SmallBadge(p.badge!), const SizedBox(width: 6)],
-                      if (p.fromReclub) const SmallBadge('via Reclub', background: AppColors.surfaceAlt, foreground: AppColors.greenText),
-                    ],
+                  child: RosterGrid(
+                    people: roster,
+                    onTap: (person) => _removeFromSetup(appState, person),
+                    onAdd: () async {
+                      final picked = await Navigator.of(context).push<PlayerRow>(MaterialPageRoute(
+                        builder: (_) => AddPlayerScreen(
+                          alreadyOnRoster: {for (final p in appState.setupPicked) p.id},
+                        ),
+                      ));
+                      if (picked != null) appState.addSetupPlayer(picked);
+                    },
                   ),
                 ),
-            ],
-          ),
-          InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: () => appState.showToast('Add player — coming in v1.0'),
-            child: Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(top: 6),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                border: Border.all(color: AppColors.borderStrong, width: 1.5, style: BorderStyle.solid),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              alignment: Alignment.center,
-              child: const Text('+ Add player manually', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textFaint)),
-            ),
-          ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 6, left: 2),
+                  child: Text(
+                    'You join as host. Added players start confirmed; Reclub players keep their Reclub list. Tap one to remove.',
+                    style: TextStyle(fontSize: 11, color: AppColors.textFaint),
+                  ),
+                ),
+              ],
+            );
+          }),
           const SizedBox(height: 20),
           PrimaryButton(
-            label: 'Start session →',
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const KotcScreen())),
+            label: _starting ? 'Creating session…' : 'Start session →',
+            onPressed: _starting ? null : () => _start(appState),
           ),
           const Padding(
             padding: EdgeInsets.only(top: 10),

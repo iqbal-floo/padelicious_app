@@ -6,6 +6,7 @@ import 'package:padelicious/data/api/api_client.dart';
 import 'package:padelicious/data/api/api_exception.dart';
 import 'package:padelicious/data/api/auth_api.dart';
 import 'package:padelicious/data/api/match_api.dart';
+import 'package:padelicious/data/api/player_api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -128,6 +129,70 @@ void main() {
   await step('leaderboard reflects the finished game', () async {
     final rows = await matches.fetchLeaderboard(sessionId!);
     if (rows.isEmpty) throw Exception('empty leaderboard');
+  });
+
+  await step('order of play lists the round with a time column', () async {
+    final sheet = await matches.fetchOrderOfPlay(sessionId!, startTime: '08:15');
+    final rows = (sheet['rows'] as List?) ?? const [];
+    if (rows.length != 1) throw Exception('expected 1 row, got ${rows.length}');
+    final row = rows.first as Map;
+    if (row['time'] != '08:15') throw Exception('expected 08:15, got ${row['time']}');
+    if (row['round'] != 1) throw Exception('expected round 1');
+    if (!'${sheet['pdf_url']}'.contains('format=pdf')) throw Exception('no pdf url');
+  });
+
+  final players = PlayerApi(client);
+  await step('a guest player can be added by hand and put on the roster', () async {
+    final unique = DateTime.now().microsecondsSinceEpoch;
+    final guest = await players.createGuest(
+      displayName: 'Hardian',
+      username: 'hardian.$unique',
+      gender: 'male',
+    );
+    if (!guest.isGuest) throw Exception('expected a guest');
+    if (guest.username != 'hardian.$unique') throw Exception('username not stored');
+    await matches.addParticipant(sessionId!, guest.id);
+
+    final session = await matches.fetchSession(sessionId!);
+    final roster = (session['participants'] as List).cast<Map<String, dynamic>>();
+    if (!roster.any((p) => p['player_id'] == guest.id)) throw Exception('guest not on roster');
+    // Two Hardians may exist; the username tells them apart.
+    final found = await players.search('@hardian.$unique');
+    if (found.length != 1 || found.first.id != guest.id) throw Exception('search by @username failed');
+  });
+
+  await step('a round can be entered by hand with its own format', () async {
+    final session = await matches.fetchSession(sessionId!);
+    final ids = (session['participants'] as List)
+        .cast<Map<String, dynamic>>()
+        .where((p) => p['status'] == 'confirmed')
+        .map((p) => p['id'] as String)
+        .take(4)
+        .toList();
+    if (ids.length < 4) throw Exception('need 4 active participants, have ${ids.length}');
+
+    final created = await matches.createRound(sessionId!, [
+      {'court': 1, 'team_a': [ids[0], ids[1]], 'team_b': [ids[2], ids[3]], 'tennis_mode': 'total4'},
+    ]);
+    if (created.length != 1) throw Exception('expected 1 match, got ${created.length}');
+
+    final rounds = await matches.fetchRounds(sessionId!);
+    final manual = rounds.firstWhere((r) => r['round_number'] == 2);
+    // Round 1 is still open, so the hand-entered round waits.
+    if (manual['status'] != 'pending') throw Exception('expected pending, got ${manual['status']}');
+    final match = (manual['matches'] as List).first as Map;
+    if (match['tennis_mode'] != 'total4') throw Exception('per-match format not stored');
+
+    // A player listed twice is refused with a message naming the match.
+    try {
+      await matches.createRound(sessionId!, [
+        {'court': 1, 'team_a': [ids[0], ids[1]], 'team_b': [ids[0], ids[3]]},
+      ]);
+      throw Exception('expected a 422');
+    } on ApiException catch (e) {
+      if (e.statusCode != 422) throw Exception('expected 422, got ${e.statusCode}');
+      if (!e.message.contains('listed twice')) throw Exception('unexpected message: ${e.message}');
+    }
   });
 
   await step('conflict surfaces as isConflict', () async {

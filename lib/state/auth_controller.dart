@@ -38,9 +38,48 @@ class AuthController {
 
   Map<String, dynamic>? get user => _user;
 
+  Map<String, dynamic>? get _player =>
+      (_user?['player'] as Map?)?.cast<String, dynamic>();
+
   String? get displayName =>
-      (_user?['player'] as Map?)?['display_name'] as String? ??
-      _user?['full_name'] as String?;
+      _player?['display_name'] as String? ?? _user?['full_name'] as String?;
+
+  /// The name as given at sign-up, e.g. "Rina Hartono".
+  String? get fullName => _user?['full_name'] as String?;
+
+  String? get email => _user?['email'] as String?;
+
+  /// The unique handle shown as @username.
+  String? get username => _player?['username'] as String?;
+
+  /// Two-letter avatar initials. Falls back to deriving them from the
+  /// display name so the avatar is never blank while the profile loads.
+  String? get initials {
+    final stored = _player?['initials'] as String?;
+    if (stored != null && stored.trim().isNotEmpty) {
+      return stored.trim().toUpperCase();
+    }
+
+    final name = displayName?.trim();
+    if (name == null || name.isEmpty) return null;
+
+    final words = name.split(RegExp(r'\s+'));
+    final letters = words.length >= 2
+        ? words[0][0] + words[1][0]
+        : name.substring(0, name.length >= 2 ? 2 : 1);
+
+    return letters.toUpperCase();
+  }
+
+  /// Index into the shared 8-colour avatar palette.
+  int get avatarColorIndex =>
+      ((_player?['avatar_color_index'] as num?)?.toInt() ?? 0) % 8;
+
+  /// When the account was created, for the "Member since" line.
+  DateTime? get memberSince {
+    final raw = _user?['created_at'] as String?;
+    return raw == null ? null : DateTime.tryParse(raw)?.toLocal();
+  }
 
   Future<bool> get isSignedIn => _client.hasToken;
 
@@ -57,11 +96,13 @@ class AuthController {
     required String email,
     required String password,
     required String passwordConfirmation,
+    String? username,
     String? gender,
   }) =>
       _attempt(() async {
         _user = await _api.register(
           fullName: fullName.trim(),
+          username: username?.trim().toLowerCase(),
           email: email.trim(),
           password: password,
           passwordConfirmation: passwordConfirmation,
@@ -70,7 +111,7 @@ class AuthController {
       });
 
   /// The player's gender, as stored on their profile.
-  String? get gender => (_user?['player'] as Map?)?['gender'] as String?;
+  String? get gender => _player?['gender'] as String?;
 
   /// Mixed formats (Mix Americano, Mixicano) need this set.
   bool get hasGender {

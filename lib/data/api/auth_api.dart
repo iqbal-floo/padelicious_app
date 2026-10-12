@@ -13,12 +13,14 @@ class AuthApi {
     required String email,
     required String password,
     required String passwordConfirmation,
+    String? username,
     String? phone,
     String? gender,
     String deviceName = 'flutter',
   }) async {
     final json = await _client.post('/auth/register', body: {
       'full_name': fullName,
+      if (username != null) 'username': username,
       'email': email,
       'password': password,
       'password_confirmation': passwordConfirmation,
